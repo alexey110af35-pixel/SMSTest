@@ -20,6 +20,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решен
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmsTestWpf", "src\SmsTestWpf\SmsTestWpf.csproj", "{ED0903A0-1F9A-0096-9A74-1BADEF46DF78}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,6 +44,10 @@ Global
 		{B5B6A04E-97D8-545F-0B16-6B74B982A1AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B5B6A04E-97D8-545F-0B16-6B74B982A1AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B5B6A04E-97D8-545F-0B16-6B74B982A1AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED0903A0-1F9A-0096-9A74-1BADEF46DF78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED0903A0-1F9A-0096-9A74-1BADEF46DF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED0903A0-1F9A-0096-9A74-1BADEF46DF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED0903A0-1F9A-0096-9A74-1BADEF46DF78}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,6 +58,7 @@ Global
 		{9E641A8C-BD6E-4B3F-B264-37DB9E6B03B1} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 		{60FE2A1D-6462-193F-6E3A-6DA2E00C0EF8} = {9E641A8C-BD6E-4B3F-B264-37DB9E6B03B1}
 		{B5B6A04E-97D8-545F-0B16-6B74B982A1AB} = {9E641A8C-BD6E-4B3F-B264-37DB9E6B03B1}
+		{ED0903A0-1F9A-0096-9A74-1BADEF46DF78} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {087A370F-2C72-44D1-8B3D-4171F13E25B1}
