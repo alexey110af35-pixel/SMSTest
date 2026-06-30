@@ -8,22 +8,22 @@ namespace SmsTestLibrary.Services
 	{
 		private readonly HttpClient _httpClient;
 		private readonly string _baseUrl;
+		private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+		{
+			PropertyNameCaseInsensitive = true,
+			PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+		};
 
 		public HttpSmsService(string baseUrl, string username, string password)
 		{
 			_baseUrl = baseUrl;
 
 			_httpClient = new HttpClient();
-
-			// Basic аутентификация
 			var authString = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
 			_httpClient.DefaultRequestHeaders.Authorization =
 				new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authString);
-
 			_httpClient.DefaultRequestHeaders.Accept.Add(
 				new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-			// Таймаут
 			_httpClient.Timeout = TimeSpan.FromSeconds(30);
 		}
 
@@ -41,61 +41,28 @@ namespace SmsTestLibrary.Services
 				var content = new StringContent(json, Encoding.UTF8, "application/json");
 
 				var response = await _httpClient.PostAsync(_baseUrl, content);
-
-				// Проверяем статус ответа
-				if (!response.IsSuccessStatusCode)
-				{
-					throw new Exception($"Сервер вернул код ошибки: {response.StatusCode}");
-				}
+				response.EnsureSuccessStatusCode();
 
 				var responseContent = await response.Content.ReadAsStringAsync();
 
-				// Проверяем, что ответ не пустой
 				if (string.IsNullOrWhiteSpace(responseContent))
 				{
 					throw new Exception("Сервер вернул пустой ответ");
 				}
 
-				// Парсим ответ
-				using var doc = JsonDocument.Parse(responseContent);
-				var root = doc.RootElement;
+				var result = JsonSerializer.Deserialize<GetMenuResponse>(responseContent, _jsonOptions);
 
-				var success = root.GetProperty("Success").GetBoolean();
-				if (!success)
+				if (result == null)
 				{
-					var error = root.GetProperty("ErrorMessage").GetString();
-					throw new Exception(error ?? "Ошибка получения меню");
+					throw new Exception("Не удалось десериализовать ответ сервера");
 				}
 
-				var menuItems = new List<Dish>();
-				if (root.TryGetProperty("Data", out var data) &&
-					data.TryGetProperty("MenuItems", out var items))
+				if (!result.Success)
 				{
-					foreach (var item in items.EnumerateArray())
-					{
-						var dish = new Dish
-						{
-							Id = item.GetProperty("Id").GetString() ?? string.Empty,
-							Article = item.GetProperty("Article").GetString() ?? string.Empty,
-							Name = item.GetProperty("Name").GetString() ?? string.Empty,
-							Price = item.GetProperty("Price").GetDouble(),
-							IsWeighted = item.GetProperty("IsWeighted").GetBoolean(),
-							FullPath = item.GetProperty("FullPath").GetString() ?? string.Empty
-						};
-
-						if (item.TryGetProperty("Barcodes", out var barcodes))
-						{
-							foreach (var barcode in barcodes.EnumerateArray())
-							{
-								dish.Barcodes.Add(barcode.GetString() ?? string.Empty);
-							}
-						}
-
-						menuItems.Add(dish);
-					}
+					throw new Exception(result.ErrorMessage ?? "Ошибка получения меню");
 				}
 
-				return menuItems;
+				return result.Data?.MenuItems ?? new List<Dish>();
 			}
 			catch (HttpRequestException ex)
 			{
@@ -103,7 +70,7 @@ namespace SmsTestLibrary.Services
 			}
 			catch (JsonException ex)
 			{
-				throw new Exception($"Ошибка парсинга JSON: {ex.Message}. Ответ сервера: {ex.StackTrace}", ex);
+				throw new Exception($"Ошибка парсинга JSON: {ex.Message}", ex);
 			}
 			catch (Exception ex)
 			{
@@ -136,29 +103,25 @@ namespace SmsTestLibrary.Services
 				var content = new StringContent(json, Encoding.UTF8, "application/json");
 
 				var response = await _httpClient.PostAsync(_baseUrl, content);
-
-				// Проверяем статус ответа
-				if (!response.IsSuccessStatusCode)
-				{
-					throw new Exception($"Сервер вернул код ошибки: {response.StatusCode}");
-				}
+				response.EnsureSuccessStatusCode();
 
 				var responseContent = await response.Content.ReadAsStringAsync();
 
-				// Проверяем, что ответ не пустой
 				if (string.IsNullOrWhiteSpace(responseContent))
 				{
 					throw new Exception("Сервер вернул пустой ответ");
 				}
 
-				using var doc = JsonDocument.Parse(responseContent);
-				var root = doc.RootElement;
+				var result = JsonSerializer.Deserialize<SendOrderResponse>(responseContent, _jsonOptions);
 
-				var success = root.GetProperty("Success").GetBoolean();
-				if (!success)
+				if (result == null)
 				{
-					var error = root.GetProperty("ErrorMessage").GetString();
-					throw new Exception(error ?? "Ошибка отправки заказа");
+					throw new Exception("Не удалось десериализовать ответ сервера");
+				}
+
+				if (!result.Success)
+				{
+					throw new Exception(result.ErrorMessage ?? "Ошибка отправки заказа");
 				}
 
 				return true;
