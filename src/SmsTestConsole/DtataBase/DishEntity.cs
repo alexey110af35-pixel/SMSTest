@@ -8,7 +8,7 @@
 		public decimal Price { get; set; }
 		public bool IsWeighted { get; set; }
 		public string FullPath { get; set; } = string.Empty;
-		public string Barcodes { get; set; } = string.Empty; // Храним как строку с разделителями
+		public string Barcodes { get; set; } = string.Empty;
 		public DateTime CreatedAt { get; set; }
 		public DateTime UpdatedAt { get; set; }
 	}

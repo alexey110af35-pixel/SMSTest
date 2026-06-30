@@ -1,4 +1,4 @@
-﻿namespace SmsTestConsole.Models
+﻿namespace SmsTestConsole.Configuration
 {
 	public class AppSettings
 	{
@@ -19,6 +19,7 @@
 		public string Password { get; set; } = string.Empty;
 		public bool UseGrpc { get; set; } = false;
 		public string GrpcAddress { get; set; } = string.Empty;
+		public bool UseMockData { get; set; } = false; // Добавлено
 	}
 
 	public class LoggingSettings

@@ -7,7 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{36D591C7-65C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmsTestLibrary", "src\SmsTestLibrary\SmsTestLibrary.csproj", "{DCA0CA03-EA4F-1342-DBB3-5B14C2188DE3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmsTestConsole", "SmsTestConsole\SmsTestConsole.csproj", "{FEFA739E-3C47-44E5-979E-317BA6C1A57C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmsTestConsole", "src\SmsTestConsole\SmsTestConsole.csproj", "{FEFA739E-3C47-44E5-979E-317BA6C1A57C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
