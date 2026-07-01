@@ -1,14 +1,19 @@
 ﻿using System.Windows;
+using SmsTestWpf.ViewModels;
 
-namespace SmsTestWpf.Views;
-
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
-public partial class MainWindow : Window
+namespace SmsTestWpf.Views
 {
-    public MainWindow()
-    {
-        InitializeComponent();
-    }
+	public partial class MainWindow : Window
+	{
+		public MainWindow()
+		{
+			InitializeComponent();			
+			DataContext = new MainViewModel();
+			
+			MouseLeftButtonDown += (s, e) =>
+			{
+				if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove();
+			};
+		}
+	}
 }

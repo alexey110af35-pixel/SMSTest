@@ -1,198 +1,164 @@
-﻿// ViewModels/MainViewModel.cs
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
-using SmsTestWpf.Models;
-using SmsTestWpf.Services;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
 using System.Windows.Input;
+using Microsoft.Extensions.Configuration;
+using Serilog;
+using SmsTestWpf.Helpers;
+using SmsTestWpf.Models;
 
 namespace SmsTestWpf.ViewModels
 {
-	public partial class MainViewModel : ObservableObject
+	public class MainViewModel : ViewModelBase
 	{
-		private readonly IEnvironmentService _environmentService;
-		private readonly ILogger<MainViewModel> _logger;
-		private readonly List<string> _variableNames;
+		private const string DefaultValue = "NOT_SET";
+		private bool _isSaving;
+		public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
 
-		[ObservableProperty]
-		private ObservableCollection<EnvironmentVariableModel> _variables = new();
-
-		[ObservableProperty]
-		private bool _isLoading;
-
-		[ObservableProperty]
-		private string _statusMessage = "Готов к работе";
-
-		[ObservableProperty]
-		private bool _hasChanges;
-
-		[ObservableProperty]
-		private int _changedCount;
-
-		[ObservableProperty]
-		private bool _isProcessing;
-
-		[ObservableProperty]
-		private string _progressMessage = string.Empty;
-
-		[ObservableProperty]
-		private int _progressValue;
-
-		[ObservableProperty]
-		private bool _showProgress;
-
+		public ICommand MinimizeCommand { get; }
+		public ICommand CloseCommand { get; }
 		public ICommand SaveCommand { get; }
 		public ICommand ResetCommand { get; }
-		public ICommand RefreshCommand { get; }
 
-		public MainViewModel(
-			IEnvironmentService environmentService,
-			ILogger<MainViewModel> logger,
-			List<string> variableNames)
+		public bool IsSaving
 		{
-			_environmentService = environmentService;
-			_logger = logger;
-			_variableNames = variableNames;
-
-			SaveCommand = new RelayCommand(SaveVariablesAsync, CanSave);
-			ResetCommand = new RelayCommand(ResetVariablesAsync, CanReset);
-			RefreshCommand = new RelayCommand(LoadVariables);
-
-			LoadVariables();
+			get => _isSaving;
+			set { _isSaving = value; OnPropertyChanged(); }
 		}
 
-		private void LoadVariables()
+		public MainViewModel()
 		{
-			IsLoading = true;
-			StatusMessage = "Загрузка переменных...";
+			MinimizeCommand = new RelayCommand(p => ((Window?)p)!.WindowState = WindowState.Minimized);
+			CloseCommand = new RelayCommand(p => { Log.CloseAndFlush(); ((Window?)p)?.Close(); });
+
+			SaveCommand = new RelayCommand(async p =>
+				await SaveAllChangesAsync(), p => Variables.Any(v => v.IsModified) && !IsSaving);
+			ResetCommand = new RelayCommand(p =>
+				ResetAllChanges(), p => Variables.Any(v => v.IsModified) && !IsSaving);
+
+			ConfigureLogging();
+			LoadEnvironmentVariables();
+		}
+
+		private void ConfigureLogging()
+		{
+			Log.Logger = new LoggerConfiguration()
+				.WriteTo.File(
+					path: "logs/test-sms-wpf-app-.log",
+					rollingInterval: RollingInterval.Day,
+					outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}")
+				.CreateLogger();
+		}
+
+		private void LoadEnvironmentVariables()
+		{
+			Variables.Clear();
+			try
+			{
+				var config = new ConfigurationBuilder()
+					.SetBasePath(Directory.GetCurrentDirectory())
+					.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+					.Build();
+
+				var varNames = config.GetSection("EnvironmentVariables").Get<List<string>>();
+				if (varNames == null) return;
+
+				foreach (var name in varNames)
+				{
+					string? osValue = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
+					bool isDefaultUsed = false;
+
+					if (string.IsNullOrEmpty(osValue))
+					{
+						osValue = DefaultValue;
+						isDefaultUsed = true;
+					}
+
+					var model = new EnvVariableModel
+					{
+						Name = name,
+						Value = osValue,
+						Comment = isDefaultUsed ? "Значение по умолчанию" : "Прочитано из ОС"
+					};
+
+					Variables.Add(new VariableItemViewModel(model));
+				}
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex, "Ошибка загрузки переменных.");
+			}
+		}
+
+		private async Task SaveAllChangesAsync()
+		{
+			var modifiedItems = Variables.Where(v => v.IsModified).ToList();
+			if (!modifiedItems.Any()) return;
+
+			IsSaving = true;
+			Mouse.OverrideCursor = Cursors.Wait;
 
 			try
 			{
-				var loaded = _environmentService.LoadVariables(_variableNames);
-				Variables.Clear();
-				foreach (var item in loaded)
+				await Task.Run(() =>
 				{
-					item.PropertyChanged += (s, e) =>
+					foreach (var item in modifiedItems)
 					{
-						if (e.PropertyName == nameof(EnvironmentVariableModel.IsChanged))
-						{
-							UpdateChangeStatus();
-						}
-					};
-					Variables.Add(item);
+						string oldValue =
+							Environment.GetEnvironmentVariable(item.Field, EnvironmentVariableTarget.User) ?? DefaultValue;
+
+						Environment.SetEnvironmentVariable(item.Field, item.Value, EnvironmentVariableTarget.User);
+
+						Log.Information("Переменная '{VarName}' изменена. Старое: '{Old}', Новое: '{New}'",
+							item.Field, oldValue, item.Value);
+					}
+				});
+
+				foreach (var item in modifiedItems)
+				{
+					item.Comment = $"Сохранено в ОС: {DateTime.Now:HH:mm:ss}";
+					item.ApplyChanges();
 				}
 
-				UpdateChangeStatus();
-				StatusMessage = $"Загружено {Variables.Count} переменных";
-				_logger.LogInformation($"Загружено {Variables.Count} переменных");
+				Mouse.OverrideCursor = null;
+				MessageBox.Show(
+					"Все изменения успешно записаны в систему в фоновом режиме!",
+					"Успех",
+					MessageBoxButton.OK,
+					MessageBoxImage.Information);
 			}
 			catch (Exception ex)
 			{
-				StatusMessage = $"Ошибка загрузки: {ex.Message}";
-				_logger.LogError(ex, "Ошибка загрузки переменных");
+				Mouse.OverrideCursor = null;
+				Log.Error(ex, "Ошибка сохранения.");
+				MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 			finally
 			{
-				IsLoading = false;
+				IsSaving = false;
 			}
 		}
 
-		private void UpdateChangeStatus()
+		private void ResetAllChanges()
 		{
-			var changed = _environmentService.GetChangedVariables(Variables.ToList());
-			HasChanges = changed.Count > 0;
-			ChangedCount = changed.Count;
-
-			StatusMessage = HasChanges
-				? $"📝 Есть {ChangedCount} измененных переменных"
-				: "✅ Нет изменений";
+			if (MessageBox.Show("Отменить не сохраненные правки?", "Отмена", MessageBoxButton.YesNo)
+				== MessageBoxResult.Yes)
+			{
+				foreach (var item in Variables) item.ResetChanges();
+			}
 		}
 
-		private bool CanSave() => !IsLoading && !IsProcessing && HasChanges;
-
-		private async void SaveVariablesAsync()
+		public void AddNewVariable()
 		{
-			if (!CanSave()) return;
-
-			IsProcessing = true;
-			ShowProgress = true;
-			ProgressValue = 0;
-			StatusMessage = "Сохранение...";
-
-			try
-			{
-				// Создаем Progress для отслеживания прогресса
-				var progress = new Progress<string>(message =>
+			var model =
+				new EnvVariableModel
 				{
-					ProgressMessage = message;
-					// Обновляем статус из сообщения
-					if (message.Contains("✅"))
-					{
-						StatusMessage = message;
-					}
-				});
+					Name = "NEW_VAR_" + (Variables.Count + 1),
+					Value = "VALUE",
+					Comment = "Новая запись"
+				};
 
-				await _environmentService.SaveVariablesAsync(Variables.ToList(), progress);
-
-				UpdateChangeStatus();
-				StatusMessage = "✅ Сохранение завершено";
-				_logger.LogInformation("Сохранение завершено");
-			}
-			catch (Exception ex)
-			{
-				StatusMessage = $"❌ Ошибка сохранения: {ex.Message}";
-				_logger.LogError(ex, "Ошибка сохранения переменных");
-			}
-			finally
-			{
-				IsProcessing = false;
-				ShowProgress = false;
-				ProgressMessage = string.Empty;
-			}
+			Variables.Add(new VariableItemViewModel(model) { IsModified = true });
 		}
-
-		private bool CanReset() => !IsLoading && !IsProcessing && HasChanges;
-
-		private async void ResetVariablesAsync()
-		{
-			if (!CanReset()) return;
-
-			IsProcessing = true;
-			ShowProgress = true;
-			ProgressValue = 0;
-			StatusMessage = "Сброс...";
-
-			try
-			{
-				var progress = new Progress<string>(message =>
-				{
-					ProgressMessage = message;
-					if (message.Contains("🔄"))
-					{
-						StatusMessage = message;
-					}
-				});
-
-				await _environmentService.ResetVariablesAsync(Variables.ToList(), progress);
-
-				UpdateChangeStatus();
-				StatusMessage = "🔄 Сброс завершен";
-				_logger.LogInformation("Сброс завершен");
-			}
-			catch (Exception ex)
-			{
-				StatusMessage = $"❌ Ошибка сброса: {ex.Message}";
-				_logger.LogError(ex, "Ошибка сброса переменных");
-			}
-			finally
-			{
-				IsProcessing = false;
-				ShowProgress = false;
-				ProgressMessage = string.Empty;
-			}
-		}
-
-		public string StatusColor => HasChanges ? "#FF6B35" : "#4CAF50";
 	}
 }
