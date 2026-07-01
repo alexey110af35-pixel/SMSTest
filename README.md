@@ -9,7 +9,7 @@
 - `SmsTestWpf` - WPF приложение
 - `SmsTest.Tests` - unit-тесты
 
-**Стек:** .NET 8, EF Core, PostgreSQL, Serilog, gRPC, xUnit
+**Стек:** .NET 8, EF Core, PostgreSQL, Serilog, gRPC
 
 
 Применение миграции
